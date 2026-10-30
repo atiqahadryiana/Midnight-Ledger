@@ -4,10 +4,12 @@ import {
   Check,
   ChevronDown,
   Clock3,
+  CircleUserRound,
   Download,
   ExternalLink,
   Eye,
   EyeOff,
+  Ellipsis,
   Grid2X2,
   Link as LinkIcon,
   List,
@@ -1001,19 +1003,7 @@ function LedgerApp({ user, onLogout }) {
             />
             <kbd>/</kbd>
           </label>
-          <nav>
-            <span className="account-email">{user.email}</span>
-            <button className="text-button" onClick={exportData}>
-              <Download size={16} />
-              <span>Export</span>
-            </button>
-            <button
-              className="text-button"
-              onClick={() => fileRef.current.click()}
-            >
-              <Upload size={16} />
-              <span>Import</span>
-            </button>
+          <nav className="header-actions">
             <input
               ref={fileRef}
               hidden
@@ -1027,36 +1017,46 @@ function LedgerApp({ user, onLogout }) {
             >
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </IconButton>
-            <button
-              className="text-button"
-              onClick={async () => {
-                try {
-                  await api("/api/auth/regenerate", { method: "POST" });
-                  tell("A new token is on its way.");
-                } catch (error) {
-                  tell(error.message);
-                }
-              }}
-            >
-              New token
-            </button>
-            <button
-              className="text-button feedback-entry"
-              onClick={(event) => {
-                feedbackTrigger.current = event.currentTarget;
-                setFeedbackOpen(true);
-              }}
-            >
-              <MessageSquare size={16} />
-              <span>Send feedback</span>
-            </button>
-            <button className="text-button" onClick={onLogout}>
-              Log out
-            </button>
             <button className="button primary header-add" onClick={openNew}>
               <Plus size={18} />
-              <span>Add</span>
+              <span>Add application</span>
             </button>
+            <details className="account-menu">
+              <summary aria-label="Open account menu">
+                <CircleUserRound size={19} />
+                <Ellipsis size={16} />
+              </summary>
+              <div className="account-popover">
+                <div className="account-identity">
+                  <small>Signed in as</small>
+                  <strong>{user.email}</strong>
+                </div>
+                <button onClick={exportData}>
+                  <Download size={16} />
+                  Export JSON
+                </button>
+                <button onClick={() => fileRef.current.click()}>
+                  <Upload size={16} />
+                  Import JSON
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      await api("/api/auth/regenerate", { method: "POST" });
+                      tell("A new token is on its way.");
+                    } catch (error) {
+                      tell(error.message);
+                    }
+                  }}
+                >
+                  <Clock3 size={16} />
+                  Email a new token
+                </button>
+                <button className="menu-danger" onClick={onLogout}>
+                  Log out
+                </button>
+              </div>
+            </details>
           </nav>
         </div>
       </header>
@@ -1214,6 +1214,18 @@ function LedgerApp({ user, onLogout }) {
         onClick={openNew}
       >
         <Plus />
+      </button>
+      <button
+        className="feedback-bubble"
+        onClick={(event) => {
+          feedbackTrigger.current = event.currentTarget;
+          setFeedbackOpen(true);
+        }}
+        aria-label="Send feedback"
+      >
+        <MessageSquare size={17} />
+        <span>Feedback</span>
+        <kbd>F</kbd>
       </button>
       <AppFooter
         onFeedback={(event) => {
