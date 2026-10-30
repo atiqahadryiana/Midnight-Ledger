@@ -1,46 +1,192 @@
 # Midnight Ledger
 
-A private internship application tracker with passwordless, email-delivered access tokens.
+> Every application, accounted for.
 
-## Local setup
+Midnight Ledger is a private internship application tracker with a calm, dark editorial interface. It combines Kanban and list workflows with follow-up reminders, account-scoped cloud storage, and passwordless access tokens delivered by email.
 
-1. Install dependencies with `npm install`.
-2. Create a Neon or Supabase Postgres database and run [`database/migration.sql`](database/migration.sql) in its SQL editor.
-3. Copy `.env.example` to `.env.local` and fill in the values. Generate `SESSION_SECRET` with `openssl rand -base64 48` (or another cryptographically secure generator).
-4. Create a Resend account. Add and verify a sending domain under **Domains**, add the required DNS records, then create an API key. Set `RESEND_FROM` to an address on that verified domain.
-5. Run the full Vercel development environment with `npx vercel dev`. Plain `npm run dev` serves only the Vite frontend and does not emulate `/api` functions.
+[Open Midnight Ledger](https://midnightledger.vercel.app)
 
-## Deploy to Vercel
+## Features
 
-1. Push this repository to GitHub.
-2. In Vercel, choose **Add New → Project**, import the repository, and keep the detected Vite settings:
-   - Build command: `npm run build`
-   - Output directory: `dist`
-3. Under **Settings → Environment Variables**, add `DATABASE_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `SESSION_SECRET`, and `APP_URL`. Apply them to Production and Preview as appropriate.
-4. Deploy. Set `APP_URL` to the final HTTPS Vercel URL, then redeploy once so every function receives it.
-5. In Resend, keep the verified domain active. The default `onboarding@resend.dev` sender is suitable only for limited testing to the account owner's email.
+- Private accounts with email-delivered access tokens
+- Board and list views with search, filters, and sorting
+- Automatic “days since applied” counters and follow-up reminders
+- Dashboard totals for active applications, interviews, offers, and rejections
+- Drag-and-drop status updates with an accessible selector alternative
+- Responsive dark and light themes
+- JSON import and export
+- One-time migration of legacy browser-local applications
 
-After later changes, push to the connected production branch; Vercel builds and deploys automatically. For a manual CLI deployment, use `npx vercel --prod` after logging in.
+## Technology
+
+- React and Vite
+- Vercel Functions
+- PostgreSQL through Supabase or Neon
+- Resend transactional email
+- Zod validation and Lucide icons
+- Plain CSS with responsive design tokens
+
+## Security model
+
+- Tokens contain at least 32 random bytes, are delivered by email, and are stored only as SHA-256 hashes.
+- Token verification uses a constant-time comparison.
+- Session identifiers are random, HMAC-protected, and stored as digests.
+- Session cookies are `HttpOnly`, `Secure`, `SameSite=Lax`, and expire after 30 days.
+- Authentication endpoints are rate limited by IP and account identifier.
+- Every application query is scoped to the authenticated `user_id`.
+- API inputs are strict, normalized, and length limited.
+
+## Project structure
+
+```text
+api/                  Vercel authentication and application endpoints
+database/             PostgreSQL migration
+lib/                  Database, auth, email, validation, and rate limiting
+src/                  React interface and design system
+```
+
+## Requirements
+
+- Node.js 20 or later
+- A Supabase or Neon Postgres database
+- A Resend account
+- A Vercel account for deployment
+
+## Database setup with Supabase
+
+1. Create a project in the [Supabase dashboard](https://supabase.com/dashboard).
+2. Open **SQL Editor** and run [`database/migration.sql`](database/migration.sql).
+3. Block direct access through Supabase’s public Data API:
+
+```sql
+alter table public.users enable row level security;
+alter table public.applications enable row level security;
+alter table public.sessions enable row level security;
+alter table public.rate_limits enable row level security;
+```
+
+4. Select **Connect → Transaction pooler → URI**.
+5. Replace the password placeholder and use port `6543`.
+6. Append `?sslmode=require` if the URI has no query string.
+
+```text
+postgresql://postgres.PROJECT_REF:PASSWORD@POOLER_HOST:6543/postgres?sslmode=require
+```
+
+## Resend setup
+
+1. Create an account at [Resend](https://resend.com/).
+2. Add a sending domain and publish the supplied DNS records.
+3. Wait for the domain to become verified.
+4. Create a sending-only API key.
+5. Use a sender on the verified domain:
+
+```text
+Midnight Ledger <access@mail.example.com>
+```
+
+`onboarding@resend.dev` is suitable only for limited testing with the Resend account owner’s email.
+
+## Environment variables
+
+Copy the template:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+Configure:
+
+```dotenv
+DATABASE_URL=postgresql://...
+RESEND_API_KEY=re_...
+RESEND_FROM=Midnight Ledger <access@mail.example.com>
+SESSION_SECRET=replace-with-a-secure-random-value
+APP_URL=http://localhost:3000
+```
+
+Generate `SESSION_SECRET` in Windows PowerShell:
+
+```powershell
+$bytes = New-Object byte[] 48; $rng = [Security.Cryptography.RandomNumberGenerator]::Create(); $rng.GetBytes($bytes); [Convert]::ToBase64String($bytes); $rng.Dispose()
+```
+
+Never commit `.env.local` or expose secrets through variables prefixed with `VITE_`.
+
+## Local development
+
+```powershell
+npm install
+npx vercel login
+npx vercel dev
+```
+
+Plain `npm run dev` starts only Vite and does not emulate the `/api` functions.
+
+Create a production build with:
+
+```powershell
+npm run build
+```
+
+## Deploying to Vercel
+
+1. Push the repository to GitHub.
+2. In Vercel, select **Add New → Project** and import it.
+3. Use the following settings:
+
+```text
+Framework: Vite
+Build command: npm run build
+Output directory: dist
+Install command: npm install
+```
+
+4. Add these environment variables under **Settings → Environment Variables**:
+
+```text
+DATABASE_URL
+RESEND_API_KEY
+RESEND_FROM
+SESSION_SECRET
+APP_URL
+```
+
+5. Deploy, set `APP_URL` to the final HTTPS address, and redeploy.
+
+## API routes
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/auth/register` | Register or replace an existing token |
+| `POST` | `/api/auth/login` | Exchange a token for a session |
+| `POST` | `/api/auth/recover` | Replace a lost token |
+| `POST` | `/api/auth/regenerate` | Regenerate a token while logged in |
+| `POST` | `/api/auth/logout` | End the current session |
+| `GET` | `/api/auth/me` | Read the current session |
+| `GET` | `/api/applications` | List the user’s applications |
+| `POST` | `/api/applications` | Create an application |
+| `PUT` | `/api/applications/:id` | Update an owned application |
+| `DELETE` | `/api/applications/:id` | Delete an owned application |
 
 ## Test checklist
 
-- Register a new normalized email address and confirm no token is displayed in the browser.
-- Receive the email and verify its dark Midnight Ledger design and `ml_` token.
-- Paste an invalid token and confirm the generic error.
-- Paste the emailed token and log in.
-- If browser-local legacy data exists, accept its one-time account import.
+- Register and confirm that no token appears in the browser.
+- Receive the email and log in with its `ml_` token.
 - Add, edit, move, follow up on, and delete an application.
-- Export JSON and import it back into the account.
-- Log out and confirm the ledger is inaccessible.
-- Log in on another browser or device with the token and confirm the same applications appear.
-- Use **New token**, confirm the email arrives, and confirm the previous token no longer works for new logins.
-- Use **Lost your token?** with both registered and unknown emails; confirm both screens show the same neutral response.
-- Trigger six rapid attempts and confirm HTTP 429 / the rate-limit message.
+- Log out and confirm that the ledger is inaccessible.
+- Log in from another browser and confirm the same data appears.
+- Regenerate the token and verify that the old token cannot create a new session.
+- Test recovery with registered and unknown emails; both must show the same neutral message.
+- Register a second account and confirm that the accounts cannot see each other’s data.
 
-## Security notes
+## Redeploying changes
 
-- Access tokens and session cookie values are stored only as irreversible digests. Token verification uses a constant-time comparison.
-- Session cookies are `HttpOnly`, `Secure`, `SameSite=Lax`, and expire after 30 days.
-- Application queries always include the authenticated `user_id`; IDs alone never authorize access.
-- API payloads are strict and length-limited. Vercel headers enforce HTTPS persistence, content restrictions, and clickjacking protection.
-- Server errors never log access tokens.
+```powershell
+npm run build
+git add .
+git commit -m "Describe the change"
+git push origin main
+```
+
+Vercel builds and publishes changes pushed to the connected production branch automatically.
