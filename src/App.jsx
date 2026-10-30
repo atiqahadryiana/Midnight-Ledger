@@ -12,10 +12,12 @@ import {
   Link as LinkIcon,
   List,
   MapPin,
+  MessageSquare,
   Moon,
   Pencil,
   Plus,
   Search,
+  Send,
   Sun,
   Trash2,
   Upload,
@@ -34,6 +36,28 @@ const STATUSES = [
 const STORAGE_KEY = "midnight-ledger-applications-v1",
   THEME_KEY = "midnight-ledger-theme",
   today = () => new Date().toISOString().slice(0, 10);
+const GITHUB_USERNAME =
+  import.meta.env.VITE_GITHUB_USERNAME || "atiqahadryiana";
+const FEEDBACK_CATEGORIES = ["Idea", "Bug", "Praise", "Other"];
+const FEEDBACK_PLACEHOLDERS = {
+  Idea: "I wish it could...",
+  Bug: "What happened, and what did you expect?",
+  Praise: "What did you like?",
+  Other: "Tell us anything.",
+};
+function GitHubIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="15"
+      height="15"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2.23c-3.23.7-3.91-1.37-3.91-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.04 1.78 2.72 1.27 3.38.97.1-.75.4-1.27.74-1.56-2.58-.29-5.29-1.29-5.29-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.16 1.18a10.97 10.97 0 0 1 5.76 0c2.2-1.49 3.16-1.18 3.16-1.18.63 1.59.23 2.77.11 3.06.74.81 1.19 1.84 1.19 3.1 0 4.42-2.72 5.39-5.3 5.68.42.36.79 1.07.79 2.16v3.21c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7Z" />
+    </svg>
+  );
+}
 const blank = () => ({
   company: "",
   role: "",
@@ -435,6 +459,253 @@ function DetailDrawer({
     </div>
   );
 }
+
+function AppFooter({ onFeedback }) {
+  return (
+    <footer className={`site-footer ${onFeedback ? "" : "auth-footer"}`}>
+      <span>
+        <Moon size={14} />
+        Midnight Ledger
+      </span>
+      <div className="footer-links">
+        {onFeedback && (
+          <button type="button" onClick={onFeedback}>
+            Feedback
+          </button>
+        )}
+        <a
+          className="developer-link"
+          href={`https://github.com/${GITHUB_USERNAME}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Developer on GitHub, opens in a new tab"
+        >
+          <GitHubIcon />
+          Built by @{GITHUB_USERNAME}
+        </a>
+      </div>
+    </footer>
+  );
+}
+
+function FeedbackModal({ onClose }) {
+  const [category, setCategory] = useState("Idea"),
+    [message, setMessage] = useState(""),
+    [rating, setRating] = useState(null),
+    [includeInfo, setIncludeInfo] = useState(true),
+    [sending, setSending] = useState(false),
+    [sent, setSent] = useState(false),
+    [error, setError] = useState("");
+  const dialog = useRef(),
+    textarea = useRef();
+  const requestClose = () => {
+    if (message.trim() && !sent && !confirm("Discard your note?")) return;
+    onClose();
+  };
+  useEffect(() => {
+    textarea.current?.focus();
+    const keys = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        requestClose();
+      }
+      if (event.key !== "Tab") return;
+      const nodes = [
+        ...dialog.current.querySelectorAll("button,input,textarea"),
+      ].filter((node) => !node.disabled);
+      if (event.shiftKey && document.activeElement === nodes[0]) {
+        event.preventDefault();
+        nodes.at(-1).focus();
+      } else if (!event.shiftKey && document.activeElement === nodes.at(-1)) {
+        event.preventDefault();
+        nodes[0].focus();
+      }
+    };
+    addEventListener("keydown", keys);
+    return () => removeEventListener("keydown", keys);
+  }, [message, sent]);
+  useEffect(() => {
+    if (!sent) return;
+    const timer = setTimeout(onClose, 4000);
+    return () => clearTimeout(timer);
+  }, [sent, onClose]);
+  const submit = async (event) => {
+    event.preventDefault();
+    if (message.trim().length < 10 || message.length > 1000) return;
+    setSending(true);
+    setError("");
+    try {
+      await api("/api/feedback", {
+        method: "POST",
+        body: JSON.stringify({
+          category,
+          message: message.trim(),
+          rating,
+          includeInfo,
+          page: includeInfo ? location.pathname : null,
+          screenSize: includeInfo ? `${screen.width}x${screen.height}` : null,
+        }),
+      });
+      setSent(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
+  };
+  return (
+    <div
+      className="modal-backdrop feedback-backdrop"
+      onMouseDown={(event) =>
+        event.target === event.currentTarget && requestClose()
+      }
+    >
+      <section
+        ref={dialog}
+        className="modal feedback-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="feedback-title"
+      >
+        {sent ? (
+          <div className="feedback-success">
+            <Moon size={38} />
+            <h2>Thank you.</h2>
+            <p>Your note has been sent. It helps shape what comes next.</p>
+            <button className="button secondary" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        ) : (
+          <>
+            <header>
+              <div>
+                <p className="kicker">A quiet note</p>
+                <h2 id="feedback-title">Help improve Midnight Ledger</h2>
+                <p>
+                  Tell us what’s working and what isn’t. Every note gets read.
+                </p>
+              </div>
+              <IconButton label="Close feedback" onClick={requestClose}>
+                <X size={20} />
+              </IconButton>
+            </header>
+            <form onSubmit={submit}>
+              <div className="feedback-fields">
+                <fieldset>
+                  <legend>What’s this about?</legend>
+                  <div className="category-pills">
+                    {FEEDBACK_CATEGORIES.map((item) => (
+                      <label key={item} data-category={item}>
+                        <input
+                          type="radio"
+                          name="category"
+                          value={item}
+                          checked={category === item}
+                          onChange={() => setCategory(item)}
+                        />
+                        <span>{item}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <label className="feedback-message">
+                  <span>Your message</span>
+                  <textarea
+                    ref={textarea}
+                    rows="5"
+                    maxLength="1000"
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value)}
+                    placeholder={FEEDBACK_PLACEHOLDERS[category]}
+                    aria-describedby="feedback-counter feedback-error"
+                  />
+                  <small
+                    id="feedback-counter"
+                    className={message.length >= 900 ? "near-limit" : ""}
+                    aria-live="polite"
+                  >
+                    {message.length} / 1000
+                  </small>
+                </label>
+                <fieldset>
+                  <legend>
+                    How’s your experience? <small>optional</small>
+                  </legend>
+                  <div className="moon-rating">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <label key={value}>
+                        <input
+                          type="radio"
+                          name="rating"
+                          value={value}
+                          checked={rating === value}
+                          onChange={() => setRating(value)}
+                        />
+                        <Moon
+                          size={25}
+                          fill={rating >= value ? "currentColor" : "none"}
+                        />
+                        <span className="sr-only">{value} out of 5</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <label className="include-info">
+                  <input
+                    type="checkbox"
+                    checked={includeInfo}
+                    onChange={(event) => setIncludeInfo(event.target.checked)}
+                  />
+                  <span>Include page and device info</span>
+                </label>
+                {error && (
+                  <p
+                    id="feedback-error"
+                    className="feedback-error"
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                )}
+              </div>
+              <footer>
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={requestClose}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="button primary"
+                  disabled={
+                    sending ||
+                    message.trim().length < 10 ||
+                    message.length > 1000
+                  }
+                >
+                  {sending ? (
+                    <>
+                      <i className="spinner" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} />
+                      Send note
+                    </>
+                  )}
+                </button>
+              </footer>
+            </form>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
 async function api(path, options = {}) {
   const response = await fetch(path, {
     credentials: "same-origin",
@@ -462,10 +733,12 @@ function LedgerApp({ user, onLogout }) {
     [editing, setEditing] = useState(),
     [selected, setSelected] = useState(),
     [modalOpen, setModalOpen] = useState(false),
+    [feedbackOpen, setFeedbackOpen] = useState(false),
     [toast, setToast] = useState("");
   const fileRef = useRef(),
     searchRef = useRef(),
-    lastTrigger = useRef();
+    lastTrigger = useRef(),
+    feedbackTrigger = useRef();
   useEffect(() => {
     let active = true;
     (async () => {
@@ -528,10 +801,21 @@ function LedgerApp({ user, onLogout }) {
         e.preventDefault();
         openNew(e.currentTarget);
       }
+      if (
+        !modalOpen &&
+        !selected &&
+        !feedbackOpen &&
+        e.key.toLowerCase() === "f" &&
+        !["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)
+      ) {
+        e.preventDefault();
+        feedbackTrigger.current = e.currentTarget;
+        setFeedbackOpen(true);
+      }
     };
     addEventListener("keydown", keys);
     return () => removeEventListener("keydown", keys);
-  }, [modalOpen, selected]);
+  }, [modalOpen, selected, feedbackOpen]);
   const tell = (m) => {
     setToast(m);
     setTimeout(() => setToast(""), 2400);
@@ -756,6 +1040,16 @@ function LedgerApp({ user, onLogout }) {
             >
               New token
             </button>
+            <button
+              className="text-button feedback-entry"
+              onClick={(event) => {
+                feedbackTrigger.current = event.currentTarget;
+                setFeedbackOpen(true);
+              }}
+            >
+              <MessageSquare size={16} />
+              <span>Send feedback</span>
+            </button>
             <button className="text-button" onClick={onLogout}>
               Log out
             </button>
@@ -921,13 +1215,12 @@ function LedgerApp({ user, onLogout }) {
       >
         <Plus />
       </button>
-      <footer className="site-footer">
-        <span>
-          <Moon size={14} />
-          Midnight Ledger
-        </span>
-        <span>Private to {user.email}</span>
-      </footer>
+      <AppFooter
+        onFeedback={(event) => {
+          feedbackTrigger.current = event.currentTarget;
+          setFeedbackOpen(true);
+        }}
+      />
       {modalOpen && (
         <ApplicationForm
           initial={editing}
@@ -948,6 +1241,14 @@ function LedgerApp({ user, onLogout }) {
           onFollowUp={followUp}
         />
       )}{" "}
+      {feedbackOpen && (
+        <FeedbackModal
+          onClose={() => {
+            setFeedbackOpen(false);
+            setTimeout(() => feedbackTrigger.current?.focus?.(), 0);
+          }}
+        />
+      )}
       {toast && (
         <div className="toast" role="status">
           <Check size={16} />
@@ -1008,111 +1309,118 @@ function AuthScreen({ onLogin }) {
     }
   };
   return (
-    <main className="auth-page">
-      <section className="auth-card">
-        <div className="auth-brand">
-          <span>
-            <Moon size={22} />
-          </span>
-          <strong>Midnight Ledger</strong>
-        </div>
-        <p className="kicker">Every application, accounted for.</p>
-        <h1>
-          {mode === "login"
-            ? "Open your ledger."
-            : mode === "register"
-              ? "Start your ledger."
-              : "Replace your token."}
-        </h1>
-        <p className="auth-intro">
-          {mode === "login"
-            ? "Paste the private token sent to your email."
-            : "We’ll email a new access token to you. It will never be shown here."}
-        </p>
-        <div className="auth-tabs" role="tablist">
-          <button
-            className={mode === "login" ? "active" : ""}
-            onClick={() => switchMode("login")}
-          >
-            Log in
-          </button>
-          <button
-            className={mode === "register" ? "active" : ""}
-            onClick={() => switchMode("register")}
-          >
-            Register
-          </button>
-        </div>
-        {notice ? (
-          <div className="auth-notice" role="status">
-            <Check size={18} />
-            <p>{notice}</p>
+    <div className="auth-shell">
+      <main className="auth-page">
+        <section className="auth-card">
+          <div className="auth-brand">
+            <span>
+              <Moon size={22} />
+            </span>
+            <strong>Midnight Ledger</strong>
           </div>
-        ) : (
-          <form onSubmit={submit}>
-            <label>
-              <span>{mode === "login" ? "Access token" : "Email address"}</span>
-              <div className="auth-input">
-                <input
-                  ref={input}
-                  type={
-                    mode === "login" && !show
-                      ? "password"
-                      : mode === "login"
-                        ? "text"
-                        : "email"
-                  }
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  autoComplete={mode === "login" ? "current-password" : "email"}
-                  placeholder={mode === "login" ? "ml_…" : "you@example.com"}
-                  aria-invalid={!!error}
-                />
-                {mode === "login" && (
-                  <IconButton
-                    type="button"
-                    label={show ? "Hide token" : "Show token"}
-                    onClick={() => setShow((s) => !s)}
-                  >
-                    {show ? <EyeOff size={17} /> : <Eye size={17} />}
-                  </IconButton>
-                )}
-              </div>
-              {error && <em className="auth-error">{error}</em>}
-            </label>
-            <button className="button primary auth-submit" disabled={busy}>
-              {busy
-                ? "Please wait…"
-                : mode === "login"
-                  ? "Log in"
-                  : "Email my token"}
+          <p className="kicker">Every application, accounted for.</p>
+          <h1>
+            {mode === "login"
+              ? "Open your ledger."
+              : mode === "register"
+                ? "Start your ledger."
+                : "Replace your token."}
+          </h1>
+          <p className="auth-intro">
+            {mode === "login"
+              ? "Paste the private token sent to your email."
+              : "We’ll email a new access token to you. It will never be shown here."}
+          </p>
+          <div className="auth-tabs" role="tablist">
+            <button
+              className={mode === "login" ? "active" : ""}
+              onClick={() => switchMode("login")}
+            >
+              Log in
             </button>
-            {mode === "login" && (
-              <button
-                type="button"
-                className="auth-link"
-                onClick={() => switchMode("recover")}
-              >
-                Lost your token?
+            <button
+              className={mode === "register" ? "active" : ""}
+              onClick={() => switchMode("register")}
+            >
+              Register
+            </button>
+          </div>
+          {notice ? (
+            <div className="auth-notice" role="status">
+              <Check size={18} />
+              <p>{notice}</p>
+            </div>
+          ) : (
+            <form onSubmit={submit}>
+              <label>
+                <span>
+                  {mode === "login" ? "Access token" : "Email address"}
+                </span>
+                <div className="auth-input">
+                  <input
+                    ref={input}
+                    type={
+                      mode === "login" && !show
+                        ? "password"
+                        : mode === "login"
+                          ? "text"
+                          : "email"
+                    }
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    autoComplete={
+                      mode === "login" ? "current-password" : "email"
+                    }
+                    placeholder={mode === "login" ? "ml_…" : "you@example.com"}
+                    aria-invalid={!!error}
+                  />
+                  {mode === "login" && (
+                    <IconButton
+                      type="button"
+                      label={show ? "Hide token" : "Show token"}
+                      onClick={() => setShow((s) => !s)}
+                    >
+                      {show ? <EyeOff size={17} /> : <Eye size={17} />}
+                    </IconButton>
+                  )}
+                </div>
+                {error && <em className="auth-error">{error}</em>}
+              </label>
+              <button className="button primary auth-submit" disabled={busy}>
+                {busy
+                  ? "Please wait…"
+                  : mode === "login"
+                    ? "Log in"
+                    : "Email my token"}
               </button>
-            )}
-            {mode === "recover" && (
-              <button
-                type="button"
-                className="auth-link"
-                onClick={() => switchMode("login")}
-              >
-                Back to log in
-              </button>
-            )}
-          </form>
-        )}
-        <p className="auth-trust">
-          Tokens are delivered by email and stored only as one-way hashes. Your
-          applications remain private to your account.
-        </p>
-      </section>
-    </main>
+              {mode === "login" && (
+                <button
+                  type="button"
+                  className="auth-link"
+                  onClick={() => switchMode("recover")}
+                >
+                  Lost your token?
+                </button>
+              )}
+              {mode === "recover" && (
+                <button
+                  type="button"
+                  className="auth-link"
+                  onClick={() => switchMode("login")}
+                >
+                  Back to log in
+                </button>
+              )}
+            </form>
+          )}
+          <p className="auth-trust">
+            Tokens are delivered by email and stored only as one-way hashes.
+            Your applications remain private to your account.
+          </p>
+        </section>
+      </main>
+      <AppFooter />
+    </div>
   );
 }
 
@@ -1127,12 +1435,15 @@ export default function App() {
   }, []);
   if (checking)
     return (
-      <main className="auth-page">
-        <div className="auth-loading">
-          <Moon size={28} />
-          <span>Opening the ledger…</span>
-        </div>
-      </main>
+      <div className="auth-shell">
+        <main className="auth-page">
+          <div className="auth-loading">
+            <Moon size={28} />
+            <span>Opening the ledger…</span>
+          </div>
+        </main>
+        <AppFooter />
+      </div>
     );
   if (!user) return <AuthScreen onLogin={setUser} />;
   return (

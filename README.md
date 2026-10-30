@@ -16,6 +16,8 @@ Midnight Ledger is a private internship application tracker with a calm, dark ed
 - Responsive dark and light themes
 - JSON import and export
 - One-time migration of legacy browser-local applications
+- Account-linked feedback with optional moon ratings and device context
+- Developer credit linking to GitHub from every screen
 
 ## Technology
 
@@ -63,6 +65,7 @@ alter table public.users enable row level security;
 alter table public.applications enable row level security;
 alter table public.sessions enable row level security;
 alter table public.rate_limits enable row level security;
+alter table public.feedback enable row level security;
 ```
 
 4. Select **Connect → Transaction pooler → URI**.
@@ -103,6 +106,8 @@ RESEND_API_KEY=re_...
 RESEND_FROM=Midnight Ledger <access@mail.example.com>
 SESSION_SECRET=replace-with-a-secure-random-value
 APP_URL=http://localhost:3000
+OWNER_EMAIL=owner@example.com
+VITE_GITHUB_USERNAME=atiqahadryiana
 ```
 
 Generate `SESSION_SECRET` in Windows PowerShell:
@@ -150,24 +155,27 @@ RESEND_API_KEY
 RESEND_FROM
 SESSION_SECRET
 APP_URL
+OWNER_EMAIL
+VITE_GITHUB_USERNAME
 ```
 
 5. Deploy, set `APP_URL` to the final HTTPS address, and redeploy.
 
 ## API routes
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/auth/register` | Register or replace an existing token |
-| `POST` | `/api/auth/login` | Exchange a token for a session |
-| `POST` | `/api/auth/recover` | Replace a lost token |
-| `POST` | `/api/auth/regenerate` | Regenerate a token while logged in |
-| `POST` | `/api/auth/logout` | End the current session |
-| `GET` | `/api/auth/me` | Read the current session |
-| `GET` | `/api/applications` | List the user’s applications |
-| `POST` | `/api/applications` | Create an application |
-| `PUT` | `/api/applications/:id` | Update an owned application |
-| `DELETE` | `/api/applications/:id` | Delete an owned application |
+| Method   | Route                   | Purpose                               |
+| -------- | ----------------------- | ------------------------------------- |
+| `POST`   | `/api/auth/register`    | Register or replace an existing token |
+| `POST`   | `/api/auth/login`       | Exchange a token for a session        |
+| `POST`   | `/api/auth/recover`     | Replace a lost token                  |
+| `POST`   | `/api/auth/regenerate`  | Regenerate a token while logged in    |
+| `POST`   | `/api/auth/logout`      | End the current session               |
+| `GET`    | `/api/auth/me`          | Read the current session              |
+| `GET`    | `/api/applications`     | List the user’s applications          |
+| `POST`   | `/api/applications`     | Create an application                 |
+| `PUT`    | `/api/applications/:id` | Update an owned application           |
+| `DELETE` | `/api/applications/:id` | Delete an owned application           |
+| `POST`   | `/api/feedback`         | Submit authenticated user feedback    |
 
 ## Test checklist
 
@@ -179,6 +187,14 @@ APP_URL
 - Regenerate the token and verify that the old token cannot create a new session.
 - Test recovery with registered and unknown emails; both must show the same neutral message.
 - Register a second account and confirm that the accounts cannot see each other’s data.
+
+- Open the footer GitHub link and confirm it opens in a new tab.
+- Submit feedback and confirm the owner email and database row arrive.
+- Submit five notes within an hour and confirm the sixth is rate limited.
+
+### Updating an existing database for feedback
+
+If the original migration was already applied, run [`database/002_feedback.sql`](database/002_feedback.sql) in the Supabase SQL Editor. Add `OWNER_EMAIL` and `VITE_GITHUB_USERNAME` in Vercel, then redeploy.
 
 ## Redeploying changes
 
