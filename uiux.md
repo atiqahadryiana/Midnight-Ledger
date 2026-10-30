@@ -373,7 +373,131 @@ Keep it calm and short, matching the moody theme.
 - Autofill and password managers should be able to save the token (`autocomplete="current-password"` on the token field).
 ---
  
-## 9. Accessibility
+## 9. Feedback Form
+ 
+A quiet way for users to report bugs and suggest improvements. Only available to logged-in users, so each message is tied to an account.
+ 
+### 9.1 Entry points
+ 
+| Location | Spec |
+|---|---|
+| Header menu (⋯) | "Send feedback" item with a message icon, placed above Log out |
+| Footer | Small ghost link: "Feedback" (muted, 13px) |
+| Mobile | Same header menu item. No extra floating button, so it doesn't compete with the **+ Add** button |
+| Keyboard | Shortcut `F` opens the form (disabled while typing in a field) |
+ 
+### 9.2 Form layout
+ 
+Desktop opens as a centred modal (max 480px). Mobile opens as a bottom sheet, same as the Add form.
+ 
+```
+┌────────────────────────────────────┐
+│  Help improve Midnight Ledger   ✕  │  Fraunces 22px
+│  Tell us what's working and what   │
+│  isn't. Every note gets read.      │  Muted 14px
+│                                    │
+│  What's this about?                │
+│  ( Idea )( Bug )( Praise )( Other )│  Pill selector, one active
+│                                    │
+│  Your message                      │
+│  ┌──────────────────────────────┐  │
+│  │                              │  │  Textarea, 5 rows
+│  │                              │  │
+│  └──────────────────────────────┘  │
+│                           0 / 1000 │  Live counter
+│                                    │
+│  How's your experience? (optional) │
+│  ☾  ☾  ☾  ☾  ☾                    │  5 moons, amber when selected
+│                                    │
+│  ☐ Include page and device info    │  Checked by default, helps with bugs
+│                                    │
+│  [ Cancel ]          [ Send note ] │
+└────────────────────────────────────┘
+```
+ 
+### 9.3 Fields
+ 
+| Field | Type | Rules |
+|---|---|---|
+| Category | Pill selector (Idea, Bug, Praise, Other) | Required, defaults to Idea |
+| Message | Textarea | Required, 10 to 1000 characters, live counter turns amber at 900 |
+| Rating | 5 moon icons | Optional. Selected moons fill with ember amber, hover previews the fill |
+| Include page and device info | Checkbox | Optional, on by default. Sends the current screen name, browser and screen size, never personal data |
+| Email | Not shown | Taken from the logged-in account, so users don't retype it |
+ 
+The category pills use the same style as status badges: neutral by default, and the active pill gets an accent tint.
+ 
+| Category | Accent |
+|---|---|
+| Idea | Ember amber `#E0A458` |
+| Bug | Muted rose `#C46B7B` |
+| Praise | Sage green `#7DB88A` |
+| Other | Mist grey-blue `#8C97B2` |
+ 
+### 9.4 Behaviour and states
+ 
+| State | Behaviour |
+|---|---|
+| Default | Send button disabled until a category is selected and the message has at least 10 characters |
+| Sending | Button shows a small spinner and "Sending..." |
+| Success | Form fades to a thank-you view: crescent moon icon, "Thank you.", "Your note has been sent. It helps shape what comes next.", and a **Close** button. Auto-closes after 4 seconds |
+| Error | Inline rose message: "Couldn't send that. Your text is still here, try again." Message is never cleared on failure |
+| Rate limited | "You've sent a few notes already. Please try again later." |
+| Unsaved text | Closing with text typed asks "Discard your note?" with Keep writing / Discard |
+| Esc key | Closes the modal (with the discard check above) |
+ 
+### 9.5 Microcopy
+ 
+| Moment | Copy |
+|---|---|
+| Title | "Help improve Midnight Ledger" |
+| Placeholder (Idea) | "I wish it could..." |
+| Placeholder (Bug) | "What happened, and what did you expect?" |
+| Placeholder (Praise) | "What did you like?" |
+| Placeholder (Other) | "Tell us anything." |
+| Success toast (if closed early) | "Note sent. Thank you." |
+ 
+The textarea placeholder changes with the selected category.
+ 
+### 9.6 Feedback accessibility
+ 
+- Category selector is a radio group with arrow-key navigation and visible focus rings.
+- Moon rating is a radio group with labels ("1 out of 5" ... "5 out of 5"), not just icons.
+- Counter and error messages use `aria-live="polite"`.
+- Modal traps focus, returns focus to the menu item on close, and the bottom sheet on mobile is swipe-to-dismiss with a visible close button.
+### 9.7 Owner view (optional)
+ 
+A simple private page at `/admin/feedback`, available only to the owner's email (set by an environment variable).
+ 
+- Table or card list, newest first: date, category pill, rating moons, message, user email, device info.
+- Filter by category, and a "Mark as done" toggle.
+- Same dark theme, no extra navigation. Not linked anywhere in the public UI.
+### 9.8 Footer and developer link
+ 
+Shown on every screen, including the login screen.
+ 
+```
+┌──────────────────────────────────────────────────────────┐
+│  ☾ Midnight Ledger            Feedback       </> Built by @YOUR_GITHUB_USERNAME │
+└──────────────────────────────────────────────────────────┘
+```
+ 
+| Element | Spec |
+|---|---|
+| Footer bar | 1px top border in `--border`, 24px vertical padding, text in `--text-muted` at 13px |
+| Developer link | GitHub icon + "Built by @YOUR_GITHUB_USERNAME", linking to `https://github.com/YOUR_GITHUB_USERNAME` |
+| Link behaviour | Opens in a new tab with `target="_blank"` and `rel="noopener noreferrer"` |
+| Hover | Text turns `--text`, with a thin amber underline that slides in (180ms) |
+| Feedback link | The ghost "Feedback" link from 9.1. It is hidden on the login screen, since feedback is for logged-in users only |
+| Mobile | Footer stacks and centres: Feedback, then the GitHub link. Keeps 16px side padding and clears the floating **+ Add** button |
+| Login screen | Footer sits below the card in `--text-faint`, showing only the GitHub link |
+| Accessibility | Link has an `aria-label` ("Developer on GitHub, opens in a new tab"). The icon is decorative (`aria-hidden`) |
+ 
+Replace `YOUR_GITHUB_USERNAME` with your real GitHub username before deploying.
+ 
+---
+ 
+## 10. Accessibility
  
 - Text contrast is at least 4.5:1 against surfaces. Check muted text on `--surface`.
 - Status is never conveyed by colour alone: every badge also has a text label.
@@ -384,14 +508,14 @@ Keep it calm and short, matching the moody theme.
 - Honour `prefers-reduced-motion` and `prefers-color-scheme`.
 ---
  
-## 10. Icons
+## 11. Icons
  
 - Library: Lucide (outline, 1.5px stroke).
 - Allowed decorative icons: `moon`, `clock`, `hourglass`.
-- Functional icons: `plus`, `search`, `more-horizontal`, `map-pin`, `link`, `download`, `upload`, `trash-2`, `pencil`.
+- Functional icons: `plus`, `search`, `more-horizontal`, `map-pin`, `link`, `download`, `upload`, `trash-2`, `pencil`, `github`, `message-square`, `send`.
 ---
  
-## 11. Tailwind Tokens (starter)
+## 12. Tailwind Tokens (starter)
  
 ```js
 // tailwind.config.js
@@ -427,12 +551,14 @@ export default {
  
 ---
  
-## 12. Build Checklist
+## 13. Build Checklist
  
 - [ ] Colour tokens and fonts set up
 - [ ] Auth screens: Log in, Register, Lost token, success and error states
 - [ ] Token email template (HTML and plain text)
-- [ ] Header menu with email, Regenerate token and Log out
+- [ ] Header menu with email, Regenerate token, Send feedback and Log out
+- [ ] Feedback modal / bottom sheet with category, message, moon rating and success state
+- [ ] Owner feedback page (optional)
 - [ ] Header, dashboard and toolbar
 - [ ] Application card with days counter and badges
 - [ ] Kanban board with drag and drop, plus list view
@@ -443,5 +569,8 @@ export default {
 - [ ] One-time import of old localStorage data after first login
 - [ ] Light mode toggle
 - [ ] Empty states and toasts
+- [ ] Footer with GitHub developer link (real username set)
+- [ ] Feedback API tied to the account, with rate limiting
 - [ ] Accessibility pass
 - [ ] Deploy to Vercel or Netlify
+ 
