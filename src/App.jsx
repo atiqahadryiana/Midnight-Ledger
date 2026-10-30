@@ -80,22 +80,25 @@ const starterData = [
     notes: "Assessment due Friday.",
   },
 ];
-const daysFrom = (date) =>
-    Math.max(
+const daysFrom = (date) => {
+    const parsed = new Date(`${date}T00:00:00`);
+    if (!date || Number.isNaN(parsed.getTime())) return 0;
+    return Math.max(
       0,
-      Math.floor(
-        (new Date().setHours(0, 0, 0, 0) - new Date(`${date}T00:00:00`)) /
-          864e5,
-      ),
-    ),
+      Math.floor((new Date().setHours(0, 0, 0, 0) - parsed) / 864e5),
+    );
+  },
   waitDays = (app) => daysFrom(app.followedUpAt || app.dateApplied),
   cleanApplication = ({ id, ...application }) => application,
-  pretty = (date) =>
-    new Intl.DateTimeFormat("en", {
+  pretty = (date) => {
+    const parsed = new Date(`${date}T00:00:00`);
+    if (!date || Number.isNaN(parsed.getTime())) return "Date unavailable";
+    return new Intl.DateTimeFormat("en", {
       day: "numeric",
       month: "short",
       year: "numeric",
-    }).format(new Date(`${date}T00:00:00`));
+    }).format(parsed);
+  };
 function IconButton({ label, children, ...props }) {
   return (
     <button className="icon-button" aria-label={label} title={label} {...props}>
